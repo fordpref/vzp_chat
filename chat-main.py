@@ -2,6 +2,7 @@ import socket, sys, curses, threading
 
 
 class ChatUI:
+    ''' borrowed the object and some chat code from https://github.com/calzoneman/python-chatui '''
     def __init__(self, stdscr, userlist_width=16):
         self.stdscr = stdscr
         self.userlist = []
