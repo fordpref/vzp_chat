@@ -1,8 +1,7 @@
-import socket, sys, curses, threading
+import socket, sys, curses, threading, time
 
 
 class ChatUI:
-    ''' borrowed the object and some chat code from https://github.com/calzoneman/python-chatui '''
     def __init__(self, stdscr, userlist_width=16):
         self.stdscr = stdscr
         self.userlist = []
@@ -14,7 +13,7 @@ class ChatUI:
         userlist_hwyx = (curses.LINES - 2, userlist_width - 1, 0, 0)
         chatbuffer_hwyx = (curses.LINES - 2, curses.COLS-userlist_width-1,
                            0, userlist_width + 1)
-        chatline_yx = (curses.LINES - 1, 0)
+        chatline_yx = (curses.LINES - 2, 0)
         self.win_userlist = stdscr.derwin(*userlist_hwyx)
         self.win_chatline = stdscr.derwin(*chatline_yx)
         self.win_chatbuffer = stdscr.derwin(*chatbuffer_hwyx)
@@ -144,31 +143,80 @@ class ChatUI:
             self.redraw_chatline()
 
 
+def keepalive():
+    '''
+    Every 30 mins, send a keep alive
+    if the client responds, keep the client
+    if the client doesn't respond remove the user and peer
+    '''
+    global peerlist, ui, sock, threadkill, name, ipaddr, alive
+
+    while threadkill == '':
+        time.sleep(60*30)
+        for peer in peerlist:
+            inp = '/keepalivereq'
+            send = sock.sendto(inp, peer)
+        time.sleep(60)
+        peerlist = {}
+        ui.userlist = []
+        ui.userlist.append(name)
+        ui.redraw_userlist()
+        for peer in alive:
+            peerlist[peer] = []
+            peerlist[peer].append(alive[peer])
+            ui.userlist.append(peerlist[peer][1])
+            ui.redraw_userlist()
+        alive = {}            
+            
+    
+
 
 
 def netchat():
-    global peerlist, ui, sock, threadkill, name, ipaddr
+    global peerlist, ui, sock, threadkill, name, ipaddr, alive
     #Get data from sockets and add to input
     while threadkill == '':
         data, address = sock.recvfrom(16384)
-        checkuser = data.split('> ')
+        #check for commands first
         if data.startswith('/'):
             data = data.split(' ')
             if "/addpeer" in data:
-                if data[1] == ipaddr and address not in peerlist:
-                    peerlist.append(address)
+                if data[1] == ipaddr and address[0] not in peerlist:
+                    peerlist[address[0]] = [address, data[2]]
+                elif address[0] not in peerlist:
+                    peerlist[address[0]] = [address, data[2]]
                 else:
-                    peer = (data[1], 2288)
-                    peerlist.append(peer)
+                    if peerlist[data[1]][1] != data[2]:
+                        ui.userlist.pop(peerlist[data[1]][1])
                 ui.userlist.append(data[2])
                 ui.redraw_userlist()
                 ui.chatbuffer_add('added peer from ' + data[2] + ': ' + data[1])
-        elif checkuser[0] not in ui.userlist:
-            ui.userlist.append(checkuser[0])
-            ui.redraw_userlist()
-            if address not in peerlist:
-                peerlist.append(address)
+                send = sock.sendto('/nick ' + name, address)
+            elif '/keepalivereq' in data:
+                send = sock.sendto('/alive ' + ipaddr + ' ' + name, address)
+            elif '/alive' in data:
+                alive[address[0]] = [address, data[2]]
+            elif '/nick' in data:
+                if peerlist[address[0]][1] == '':
+                    peerlist[address[0]][1] = data[1]
+                    ui.userlist.append(data[1])
+                    ui.redraw_userlist()
+                else:
+                    ui.userlist.remove(peerlist[address[0]][1])
+                    ui.redraw_userlist()
+                    peerlist[address[0]][1] = data[1]
+                    ui.userlist.append(peerlist[address[0]][1])
+                    ui.redraw_userlist()
+            else:
+                pass
+        #if userlist not updated, update it
+        elif peerlist[address[0]][1] == '':
             ui.chatbuffer_add(data)
+            data = data.split('> ')
+            peerlist[address[0]][1] == data[0]
+            ui.userlist.append(data[0])
+            ui.redraw_userlist()
+        #just write the chat output
         else:
             ui.chatbuffer_add(data)
             
@@ -184,12 +232,20 @@ def commands(inp):
     elif "/addpeer" in inp:
         if inp[1] not in peerlist:
             peer = (inp[1], 2288)
-            peerlist.append(peer)
+            peerlist[inp[1]] = [peer, '']
+            #peerlist[inp[1]].append([peer,''])
             ui.chatbuffer_add('added peer: ' + inp[1])
             for peer in peerlist:
                 inp = ' '.join(inp)
                 inp = inp + ' ' + name
-                send = sock.sendto(inp, peer)
+                send = sock.sendto(inp, peerlist[peer][0])
+    elif '/nick' in inp:
+        ui.userlist.remove(name)
+        ui.userlist.append(inp[1])
+        name = inp[1]
+        ui.redraw_userlist()
+        for peer in peerlist:
+            send = sock.sendto('/nick ' + name, peerlist[peer][0])
     elif '/userlist' in inp:
         users = ', '.join(ui.userlist)
         ui.chatbuffer_add(users)
@@ -198,7 +254,7 @@ def commands(inp):
 
 
 def main(stdscr):
-    global peerlist, sock, ui, nc, name, ipaddr
+    global peerlist, sock, ui, nc, name, ipaddr, ka
 
 
     # Create a TCP/IP socket
@@ -211,8 +267,9 @@ def main(stdscr):
     #setup UI, get local username
     stdscr.clear()
     ui = ChatUI(stdscr)
-    name = ui.wait_input("Username: ")
-    ui.userlist.append(name)
+    ipaddr = ui.wait_input('What is your IP: ')
+    name = ui.wait_input("What is your Username: ")
+    ui.userlist.append(name)    
     ui.redraw_userlist()
     inp = ""
 
@@ -220,6 +277,11 @@ def main(stdscr):
     nc = threading.Thread(target=netchat)
     nc.setDaemon(True)
     nc.start()
+
+    #start keepalive thread
+    ka = threading.Thread(target=keepalive)
+    ka.setDaemon(True)
+    ka.start()
 
     while True:
         
@@ -232,16 +294,15 @@ def main(stdscr):
             ui.chatbuffer_add(inp)
             if len(peerlist) != 0:
                 for peer in peerlist:
-                    send = sock.sendto(inp, peer)
+                    send = sock.sendto(inp, peerlist[peer][0])        
 
-        #Command parsing here
-        
-
-
-peerlist = []
+''' start main loop '''
+peerlist = {}
+alive = {}
 threadkill = ''
-ipaddr = raw_input('What is your IP address: ')
-
+ipaddr = ''
+name = ''
+userlist = {}
 
 
 curses.wrapper(main)
