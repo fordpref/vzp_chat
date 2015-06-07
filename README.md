@@ -8,6 +8,7 @@ Usage:  python chat-main.py
 
 
 uses a simple chatui in cursses from:  https://github.com/calzoneman/python-chatui
+
 threads out the network listener to take input from the network separate from the keyboard.
 
 listens and connects on udp 2288
