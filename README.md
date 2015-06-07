@@ -1,9 +1,11 @@
 # vzp_chat
-shitty little fun project to make a VERY basic peer to peer chat.  Linux only for now.
+shitty little fun project to make a VERY basic peer to peer chat. linux is better, but does work in windows but you will need the module from here for curses:
 
 Usage:  python chat-main.py
 /addpeer to connect to another client
 /quit to quit
+/nick to change your username
+
 
 uses a simple chatui in cursses from:  https://github.com/calzoneman/python-chatui
 threads out the network listener to take input from the network separate from the keyboard.
