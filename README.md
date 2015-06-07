@@ -1,5 +1,5 @@
 # vzp_chat
-shitty little fun project to make a VERY basic peer to peer chat. linux is better, but does work in windows but you will need the module from here for curses:
+shitty little fun project to make a VERY basic peer to peer chat. linux is better, but does work in windows but you will need the module from here for curses:  http://www.lfd.uci.edu/~gohlke/pythonlibs/#curses
 
 Usage:  python chat-main.py
 /addpeer to connect to another client
