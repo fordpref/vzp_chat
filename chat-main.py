@@ -180,7 +180,17 @@ def netchat():
         #check for commands first
         if data.startswith('/'):
             data = data.split(' ')
-            if "/addpeer" in data:
+            if '/REJECTNAME' in data:
+                ui.chatbuffer_add("You're name was REJECTED, try again")
+                ui.userlist.remove(name)
+                name = ui.wait_input('Input another username: ')
+                ui.userlist.append(name)
+                del peerlist[address[0]]
+                commands('/addpeer ' + address[0] + ' ' + name)
+            elif "/addpeer" in data:
+                if data[2] in ui.userlist and address[0] not in peerlist:
+                    send = sock.sendto('/REJECTNAME', address)
+                    next
                 if address[0] not in peerlist:
                     peerlist[address[0]] = [address, data[2]]
                 if data[2] not in ui.userlist:
@@ -233,16 +243,15 @@ def commands(inp):
     global peerlist, ui, sock, nc, threadkill, name, ipaddr
     inp = inp.split(' ')
     if "/quit" in inp:
-        threadkill = "FUCKING STOP THE THREADS"
+        threadkill = "STOP THE THREADS"
         exit()
     elif "/addpeer" in inp:
         if inp[1] not in peerlist:
             peer = (inp[1], 2288)
-            peerlist[inp[1]] = [peer, '']
+            peerlist[peer[0]] = [peer, '']
             ui.chatbuffer_add('added peer: ' + inp[1])
-            for peer in peerlist:
-                data = '/addpeer ' + ipaddr + ' ' + name
-                send = sock.sendto(data, peerlist[peer][0])
+            data = '/addpeer ' + ipaddr + ' ' + name
+            send = sock.sendto(data, peer)
     elif '/nick' in inp:
         ui.userlist.remove(name)
         ui.userlist.append(inp[1])
