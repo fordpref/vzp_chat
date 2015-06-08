@@ -155,7 +155,7 @@ def keepalive():
         time.sleep(60*30)
         for peer in peerlist:
             inp = '/keepalivereq'
-            send = sock.sendto(inp, peer)
+            send = sock.sendto(inp, peerlist[peer][0])
         time.sleep(60)
         peerlist = {}
         ui.userlist = []
@@ -181,17 +181,24 @@ def netchat():
         if data.startswith('/'):
             data = data.split(' ')
             if "/addpeer" in data:
-                if data[1] == ipaddr and address[0] not in peerlist:
+                if address[0] not in peerlist:
                     peerlist[address[0]] = [address, data[2]]
-                elif address[0] not in peerlist:
-                    peerlist[address[0]] = [address, data[2]]
-                else:
-                    if peerlist[data[1]][1] != data[2]:
-                        ui.userlist.pop(peerlist[data[1]][1])
-                ui.userlist.append(data[2])
+                if data[2] not in ui.userlist:
+                    ui.userlist.append(data[2])
+                if data[2] not in peerlist[address[0]][1]:
+                    peerlist[address[0]][1] = data[2]
                 ui.redraw_userlist()
-                ui.chatbuffer_add('added peer from ' + data[2] + ': ' + data[1])
+                ui.chatbuffer_add('added peer from ' + data[2] + ': ' + address[0])
                 send = sock.sendto('/nick ' + name, address)
+                for peer in peerlist:
+                    send = sock.sendto('/peerlist ' + str(peerlist[peer][0][0]) + ' ' + peerlist[peer][1], address)
+            elif '/peerlist' in data:
+                if data[1] not in peerlist:
+                    peerlist[data[1]] = [(data[1],2288),data[2]]
+                    send = sock.sendto('/addpeer ' + ipaddr + ' ' + name,peerlist[data[1]][0])
+                    if data[2] not in ui.userlist:
+                        ui.userlist.append(data[2])
+                        ui.redraw_userlist()
             elif '/keepalivereq' in data:
                 send = sock.sendto('/alive ' + ipaddr + ' ' + name, address)
             elif '/alive' in data:
@@ -199,23 +206,22 @@ def netchat():
             elif '/nick' in data:
                 if peerlist[address[0]][1] == '':
                     peerlist[address[0]][1] = data[1]
-                    ui.userlist.append(data[1])
+                    if data[1] not in ui.userlist:
+                        ui.userlist.append(data[1])
                     ui.redraw_userlist()
                 else:
-                    ui.userlist.remove(peerlist[address[0]][1])
+                    if peerlist[address[0]][1] in ui.userlist:
+                        ui.userlist.remove(peerlist[address[0]][1])
                     ui.redraw_userlist()
                     peerlist[address[0]][1] = data[1]
-                    ui.userlist.append(peerlist[address[0]][1])
+                    if data[1] not in ui.userlist:
+                        ui.userlist.append(data[1])
                     ui.redraw_userlist()
             else:
                 pass
-        #if userlist not updated, update it
-        elif peerlist[address[0]][1] == '':
-            ui.chatbuffer_add(data)
-            data = data.split('> ')
-            peerlist[address[0]][1] == data[0]
-            ui.userlist.append(data[0])
-            ui.redraw_userlist()
+        #cleanup in case you added yourself somehow
+        elif ipaddr in peerlist:
+            del peerlist[ipaddr]
         #just write the chat output
         else:
             ui.chatbuffer_add(data)
@@ -233,12 +239,10 @@ def commands(inp):
         if inp[1] not in peerlist:
             peer = (inp[1], 2288)
             peerlist[inp[1]] = [peer, '']
-            #peerlist[inp[1]].append([peer,''])
             ui.chatbuffer_add('added peer: ' + inp[1])
             for peer in peerlist:
-                inp = ' '.join(inp)
-                inp = inp + ' ' + name
-                send = sock.sendto(inp, peerlist[peer][0])
+                data = '/addpeer ' + ipaddr + ' ' + name
+                send = sock.sendto(data, peerlist[peer][0])
     elif '/nick' in inp:
         ui.userlist.remove(name)
         ui.userlist.append(inp[1])
@@ -249,6 +253,9 @@ def commands(inp):
     elif '/userlist' in inp:
         users = ', '.join(ui.userlist)
         ui.chatbuffer_add(users)
+    elif '/peerlist' in inp:
+        for peers in peerlist:
+            ui.chatbuffer_add(peers)
     return()
 
 
@@ -293,8 +300,11 @@ def main(stdscr):
             inp = name + '> ' + inp
             ui.chatbuffer_add(inp)
             if len(peerlist) != 0:
-                for peer in peerlist:
-                    send = sock.sendto(inp, peerlist[peer][0])        
+                try:
+                    for peer in peerlist:
+                        send = sock.sendto(inp, peerlist[peer][0])
+                except:
+                    ui.chatbuffer_add('Something went wrong, try it again')
 
 ''' start main loop '''
 peerlist = {}
