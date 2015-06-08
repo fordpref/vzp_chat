@@ -2,14 +2,20 @@
 shitty little fun project to make a VERY basic peer to peer chat. linux is better, but does work in windows but you will need the module from here for curses:  http://www.lfd.uci.edu/~gohlke/pythonlibs/#curses
 
 Usage:  python chat-main.py
+asks for your IP address and then a username
+
 /addpeer to connect to another client
+
 /quit to quit
+
 /nick to change your username
 
 
 uses a simple chatui in cursses from:  https://github.com/calzoneman/python-chatui
 
 threads out the network listener to take input from the network separate from the keyboard.
+when connecting to a peer, peer sends peerlist and then it adds to all the other peers
+it will be slow, so mileage will vary
 
 listens and connects on udp 2288
 
