@@ -2,7 +2,7 @@ import socket, sys, curses, threading, time
 
 
 class ChatUI:
-    def __init__(self, stdscr, userlist_width=16):
+    def __init__(self, stdscr, userlist_width=31):
         self.stdscr = stdscr
         self.userlist = []
         self.inputbuffer = ""
@@ -26,7 +26,7 @@ class ChatUI:
         h, w = self.stdscr.getmaxyx()
 
         self.win_chatline.mvwin(h - 1, 0)
-        self.win_chatline.resize(1, w)
+        self.win_chatline.resize(2, w)
 
         self.win_userlist.resize(h - 2, u_w)
         self.win_chatbuffer.resize(h - 2, w - u_w - 2)
@@ -152,7 +152,7 @@ def keepalive():
     global peerlist, ui, sock, threadkill, name, ipaddr, alive
 
     while threadkill == '':
-        time.sleep(60*30)
+        time.sleep(2*30)
         for peer in peerlist:
             inp = '/keepalivereq'
             send = sock.sendto(inp, peerlist[peer][0])
@@ -162,9 +162,8 @@ def keepalive():
         ui.userlist.append(name)
         ui.redraw_userlist()
         for peer in alive:
-            peerlist[peer] = []
-            peerlist[peer].append(alive[peer])
-            ui.userlist.append(peerlist[peer][1])
+            peerlist[peer] = alive[peer]
+            ui.userlist.append(alive[peer][1])
             ui.redraw_userlist()
         alive = {}            
             
@@ -285,6 +284,7 @@ def main(stdscr):
     ui = ChatUI(stdscr)
     ipaddr = ui.wait_input('What is your IP: ')
     name = ui.wait_input("What is your Username: ")
+    name = name + '(' + ipaddr + ')'
     ui.userlist.append(name)    
     ui.redraw_userlist()
     inp = ""
