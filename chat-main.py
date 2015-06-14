@@ -25,8 +25,8 @@ class ChatUI:
         u_h, u_w = self.win_userlist.getmaxyx()
         h, w = self.stdscr.getmaxyx()
 
-        self.win_chatline.mvwin(h - 1, 0)
-        self.win_chatline.resize(2, w)
+        self.win_chatline.mvwin(h - 2, 0)
+        self.win_chatline.resize(1, w)
 
         self.win_userlist.resize(h - 2, u_w)
         self.win_chatbuffer.resize(h - 2, w - u_w - 2)
