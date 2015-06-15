@@ -253,8 +253,8 @@ def commands(inp):
             send = sock.sendto(data, peer)
     elif '/nick' in inp:
         ui.userlist.remove(name)
-        ui.userlist.append(inp[1])
-        name = inp[1]
+        ui.userlist.append(inp[1] +'(' + ipaddr + ')')
+        name = inp[1] +'(' + ipaddr + ')'
         ui.redraw_userlist()
         for peer in peerlist:
             send = sock.sendto('/nick ' + name, peerlist[peer][0])
